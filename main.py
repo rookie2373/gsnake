@@ -1,6 +1,7 @@
 # Import required modules
 import pygame
 import random
+from pathlib import Path
 from config import *
 
 # Game clock
@@ -12,6 +13,9 @@ def init_game():
     pygame.mixer.init()
 
     game_window = pygame.display.set_mode((width, height))
+    asset_dir = Path(__file__).resolve().parent
+    background = pygame.image.load(asset_dir / 'bg.jpg').convert()
+    background = pygame.transform.scale(background, (width, height))
     
     color = (255,255,255)
     game_window.fill(color)
@@ -22,7 +26,7 @@ def init_game():
     pygame.display.set_caption("Feed the Snake")
     pygame.display.update()
 
-    return game_window, score_font, status_font
+    return game_window, score_font, status_font, background
 
 # Display text on screen
 def text_screen(game_window, text, font, color, x, y):
@@ -35,7 +39,7 @@ def plot_snake(game_window, color, snake_list, snake_size):
         pygame.draw.rect(game_window, color, [x, y, snake_size, snake_size])
 
 # Instance of the game
-def gameloop(game_window,score_font, status_font):
+def gameloop(game_window, score_font, status_font, background):
     # game state
     exit_game = False
     game_over = False
@@ -65,7 +69,7 @@ def gameloop(game_window,score_font, status_font):
     fps = 35
 
     if music:
-        pygame.mixer.music.load('./Back.mp3')
+        pygame.mixer.music.load(Path(__file__).resolve().parent / 'music.mp3')
         pygame.mixer.music.play()
 
     while not exit_game:
@@ -83,7 +87,7 @@ def gameloop(game_window,score_font, status_font):
                     exit_game = True
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
-                        gameloop(game_window,score_font, status_font)
+                        gameloop(game_window, score_font, status_font, background)
 
         else:
             for event in pygame.event.get():
@@ -137,8 +141,7 @@ def gameloop(game_window,score_font, status_font):
             elif snake_y < 10:
                 snake_y = height - 10
 
-            game_window.fill(white)
-            # game_window.blit(back, (0, 0))
+            game_window.blit(background, (0, 0))
 
             if pause:
                 text_screen(game_window, 'Paused...',
@@ -180,7 +183,7 @@ def gameloop(game_window,score_font, status_font):
 
 # Start of application
 def main():
-    gw, scfont, stfont = init_game()
-    gameloop(game_window=gw,score_font=scfont, status_font=stfont)
+    gw, scfont, stfont, background = init_game()
+    gameloop(game_window=gw, score_font=scfont, status_font=stfont, background=background)
 
 main()
