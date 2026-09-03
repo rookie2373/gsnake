@@ -19,6 +19,16 @@ python3 -m pip install gsnake
 python3 -m gsnake
 ```
 
+### Building and publishing
+Install the build and publishing tools, then run these commands from the repository root:
+```shell
+python3 -m pip install --upgrade build twine
+python3 -m build
+python3 -m twine upload dist/*
+```
+
+The wheel includes `bg.jpg` and `music.mp3` inside the installed package.
+
 ## Game controls
 - Control the snake with arrow keys
 - To speed up, press `w`

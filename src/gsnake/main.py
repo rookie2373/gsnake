@@ -2,7 +2,8 @@
 import pygame
 import random
 from pathlib import Path
-from config import *
+from .config import *
+from importlib import resources
 
 # Game clock
 clock = pygame.time.Clock()
@@ -13,9 +14,12 @@ def init_game():
     pygame.mixer.init()
 
     game_window = pygame.display.set_mode((width, height))
-    asset_dir = Path(__file__).resolve().parent
-    background = pygame.image.load(asset_dir / 'bg.jpg').convert()
-    background = pygame.transform.scale(background, (width, height))
+
+    bg_asset = resources.files("gsnake").joinpath("assets/images/bg.jpg")
+    with resources.as_file(bg_asset) as bg_path:
+        background = pygame.image.load(str(bg_path)).convert()
+        background = pygame.transform.scale(background, (width, height))
+    
     
     color = (255,255,255)
     game_window.fill(color)
@@ -69,7 +73,8 @@ def gameloop(game_window, score_font, status_font, background):
     fps = 35
 
     if music:
-        pygame.mixer.music.load(Path(__file__).resolve().parent / 'music.mp3')
+        music_asset = resources.files("gsnake").joinpath("assets/sounds/music.mp3")
+        pygame.mixer.music.load(music_asset)
         pygame.mixer.music.play()
 
     while not exit_game:
@@ -151,7 +156,7 @@ def gameloop(game_window, score_font, status_font, background):
                         score_font, black, 10, 50)
             text_screen(
                 game_window, f'Score: {str(score)}', score_font, red, 10, 10)
-            text_screen(game_window, "Copyright (c) 2023 Rushikesh Kundkar", status_font,
+            text_screen(game_window, "Licensed under GNU GPLv3 by rookie2373", status_font,
                         black, width-850, height-25)
 
             pygame.draw.rect(game_window, blue, [0, 0, 5, height])
@@ -185,5 +190,3 @@ def gameloop(game_window, score_font, status_font, background):
 def main():
     gw, scfont, stfont, background = init_game()
     gameloop(game_window=gw, score_font=scfont, status_font=stfont, background=background)
-
-main()
