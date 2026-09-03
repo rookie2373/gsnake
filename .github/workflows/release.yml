@@ -1,0 +1,132 @@
+name: Python3 Release
+
+on:
+  push:
+    branches:
+      - develop
+    tags:
+      - '*.*.*'
+      - '*.*.*.rc*'
+      - '*.*.*.post*'
+
+jobs:
+  python3-validate-push:
+    runs-on: ubuntu-latest
+    outputs:
+      index_target: ${{ steps.enforce_protocols.outputs.index_target }}
+      should_auto_tag: ${{ steps.enforce_protocols.outputs.should_auto_tag }}
+    steps:
+      - name: Verify Source Tag
+        id: verify_tag
+        if: ${{ github.ref_type == 'tag' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce Release Protocols
+        id: enforce_protocols
+        run: |
+          if [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+            echo "Branch event detected on develop. Initializing automated dev tag generation pipeline."
+            echo "index_target=testpypi" >> $GITHUB_OUTPUT
+            echo "should_auto_tag=true" >> $GITHUB_OUTPUT
+            
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+            echo "Manual Tag tracking event detected: $TAG_NAME"
+            echo "should_auto_tag=false" >> $GITHUB_OUTPUT
+            
+            IS_ON_MASTER=$(git branch -r --contains "refs/tags/$TAG_NAME" | grep -E 'origin/master$' || true)
+            
+            if [[ -z "$IS_ON_MASTER" ]]; then
+              echo "🛑 CRITICAL SECURITY ERROR: The explicit deployment tag '$TAG_NAME' was not created from the master branch."
+              echo "All production/RC releases must originate from master. Terminal execution stopped."
+              exit 1
+            fi
+            
+            if [[ "$TAG_NAME" == *".dev"* || "$TAG_NAME" == *".rc"* ]]; then
+              echo "Validated tag on master. Target Index: TestPyPI"
+              echo "index_target=testpypi" >> $GITHUB_OUTPUT
+            elif [[ "$TAG_NAME" == *".post"* ]] || [[ "$TAG_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Validated tag on master. Target Index: Production PyPI"
+              echo "index_target=pypi" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  python3-publish:
+    needs: python3-validate-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Checkout Source
+        id: checkout_source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Setup python3
+        run: uv python install 3.13
+
+      - name: Auto Dev Tag
+        if: ${{ needs.python3-validate-push.outputs.should_auto_tag == 'true' }}
+        run: |
+          BASE_VERSION=$(python3 -c "import os; print(open('src/gsnake/__init__.py').read().split('=')[-1].strip().strip('\"').strip('\''))")
+          echo "Base code version target: $BASE_VERSION"
+          
+          git fetch --tags --force
+          
+          LATEST_DEV=$(git tag -l "$BASE_VERSION.dev*" | sed "s/$BASE_VERSION\.dev//" | sort -n | tail -n 1)
+          
+          if [ -z "$LATEST_DEV" ]; then
+            NEXT_DEV=1
+          else
+            NEXT_DEV=$((LATEST_DEV + 1))
+          fi
+          
+          TARGET_TAG="$BASE_VERSION.dev$NEXT_DEV"
+          echo "Generated Tag Target: $TARGET_TAG"
+          
+          python3 - "$TARGET_TAG" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          version_file = Path("src/gsnake/__init__.py")
+          source = version_file.read_text()
+          updated = re.sub(
+              r'(__version__\s*=\s*["\']).*?(["\'])',
+              rf'\g<1>{sys.argv[1]}\g<2>',
+              source,
+              count=1,
+          )
+          if updated == source:
+              raise SystemExit("Could not update package version")
+          version_file.write_text(updated)
+          PY
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@://github.com"
+          
+          git tag -a "$TARGET_TAG" -m "Automated dev release [skip ci]"
+          git push origin "$TARGET_TAG" -o ci.skip
+      
+      - name: Build Distribution
+        run: uv build
+
+      - name: Python3 Test Deploy
+        if: ${{ needs.python3-validate-push.outputs.index_target == 'testpypi' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Python3 Prod Deploy
+        if: ${{ needs.python3-validate-push.outputs.index_target == 'pypi' }}
+        uses: pypa/gh-action-pypi-publish@release/v1

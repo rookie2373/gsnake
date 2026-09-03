@@ -11,4 +11,4 @@ width = 1200
 height = 660
 
 # music
-music = False
+music = True
