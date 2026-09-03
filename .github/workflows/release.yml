@@ -106,7 +106,7 @@ jobs:
         if: ${{ needs.python3-validate-push.outputs.index_target == 'testpypi' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://pypi.org
+          repository-url: https://test.pypi.org/legacy/
 
       - name: Python3 Prod Deploy
         if: ${{ needs.python3-validate-push.outputs.index_target == 'pypi' }}
