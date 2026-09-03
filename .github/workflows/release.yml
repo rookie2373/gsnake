@@ -94,7 +94,23 @@ jobs:
           TARGET_TAG="$BASE_VERSION.dev$NEXT_DEV"
           echo "Generated Tag Target: $TARGET_TAG"
           
-          echo "HATCH_VERSION_MODIFIER=.dev$NEXT_DEV" >> $GITHUB_ENV
+          python3 - "$TARGET_TAG" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          version_file = Path("src/gsnake/__init__.py")
+          source = version_file.read_text()
+          updated = re.sub(
+              r'(__version__\s*=\s*["\']).*?(["\'])',
+              rf'\g<1>{sys.argv[1]}\g<2>',
+              source,
+              count=1,
+          )
+          if updated == source:
+              raise SystemExit("Could not update package version")
+          version_file.write_text(updated)
+          PY
           
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@://github.com"
