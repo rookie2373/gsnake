@@ -81,6 +81,8 @@ jobs:
           BASE_VERSION=$(python3 -c "import os; print(open('src/gsnake/__init__.py').read().split('=')[-1].strip().strip('\"').strip('\''))")
           echo "Base code version target: $BASE_VERSION"
           
+          git fetch --tags --force
+          
           LATEST_DEV=$(git tag -l "$BASE_VERSION.dev*" | sed "s/$BASE_VERSION\.dev//" | sort -n | tail -n 1)
           
           if [ -z "$LATEST_DEV" ]; then
@@ -96,9 +98,10 @@ jobs:
           
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@://github.com"
-          git tag "$TARGET_TAG"
-          git push origin "$TARGET_TAG"
-
+          
+          git tag -a "$TARGET_TAG" -m "Automated dev release [skip ci]"
+          git push origin "$TARGET_TAG" -o ci.skip
+      
       - name: Build Distribution
         run: uv build
 
